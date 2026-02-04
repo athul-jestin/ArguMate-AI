@@ -1,7 +1,6 @@
 import requests
 
 class FactChecker:
-    API_KEY = "YOUR_GOOGLE_FACT_CHECK_API_KEY"
 
     def check(self, statement: str) -> str:
         url = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
