@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     PROJECT_DESCRIPTION: str
     PROJECT_VERSION: str
 
+    # Fact Check
+    GOOGLE_FACT_CHECK_API_KEY: str
+
     # PosgreSQL
     POSTGRES_SERVER: str
     POSTGRES_USER: str
