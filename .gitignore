@@ -9,6 +9,33 @@ data/
 postgresql/
 *.ipynb
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Docker volumes and data
+postgres_data/
+pgadmin_data/
+backups/
+.docker
+
+# Docker compose overrides
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -91,6 +118,10 @@ target/
 .ipynb_checkpoints
 
 # IPython
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
 profile_default/
 ipython_config.py
 
