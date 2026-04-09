@@ -45,14 +45,7 @@ def health_check():
 @app.on_event("startup")
 async def startup_event():
     """Run on application startup"""
-    try:
-        from app.db.config import check_db_connection
-        await check_db_connection()
-    except ImportError:
-        pass
-    except Exception:
-        pass
-
+    pass
 
 @app.on_event("shutdown")
 async def shutdown_event():

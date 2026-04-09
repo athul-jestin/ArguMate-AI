@@ -1,245 +1,143 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Sidebar, ChatArea, InitialPrompt } from './components';
-import './App.css';
+import { useState, useRef, useEffect } from 'react';
+import { MainLayout } from './components/layout/MainLayout';
+import { InputBar } from './components/debate/InputBar';
+import { MessageBubble, type AgentRole } from './components/debate/MessageBubble';
+import { FactCheckerCard, type Claim } from './components/debate/FactCheckerCard';
+import { TypingIndicator } from './components/debate/TypingIndicator';
 
-interface ChatItem {
-  id: string;
-  title: string;
-  timestamp: Date;
-  topic: string;
-  messages: Message[];
-}
+// Types to represent the debate thread
+type DebateItem = 
+  | { type: 'topic'; content: string }
+  | { type: 'message'; role: AgentRole; content: string }
+  | { type: 'fact-check'; alphaClaims: Claim[]; betaClaims: Claim[] };
 
-interface Message {
-  type: 'debate' | 'fact-checker';
-  agent?: 'Alpha' | 'Beta';
-  content?: string | ClaimCheck[];
-  timestamp?: Date;
-}
-
-interface ClaimCheck {
-  agent: 'Alpha' | 'Beta';
-  claim: string;
-  result: 'True' | 'False' | 'Partially true';
-}
-
-const API_BASE_URL = 'http://localhost:8000/api';
+type DebateState = 'idle' | 'alpha_typing' | 'beta_typing' | 'fc_typing' | 'waiting_continue';
 
 function App() {
-  const [chats, setChats] = useState<ChatItem[]>(() => {
-    const saved = localStorage.getItem('argumate-chats');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [thread, setThread] = useState<DebateItem[]>([]);
+  const [debateState, setDebateState] = useState<DebateState>('idle');
+  const [topic, setTopic] = useState('');
+  
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const [activeChat, setActiveChat] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Save chats to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('argumate-chats', JSON.stringify(chats));
-  }, [chats]);
-
-  const handleNewChat = () => {
-    setActiveChat(null);
-    setSidebarOpen(false);
-  };
-
-  const handleSelectChat = (chatId: string) => {
-    setActiveChat(chatId);
-    setSidebarOpen(false);
-  };
-
-  const handleDeleteChat = (chatId: string) => {
-    setChats(chats.filter((c) => c.id !== chatId));
-    if (activeChat === chatId) {
-      setActiveChat(null);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
+  }, [thread, debateState]);
+
+  const simulateTrip = async () => {
+    // 1. Alpha typing
+    setDebateState('alpha_typing');
+    await new Promise(r => setTimeout(r, 1500));
+    setThread(prev => [...prev, { 
+      type: 'message', 
+      role: 'alpha', 
+      content: "Here is Alpha's argument for the Pro side. To start, I'd like to assert that adopting this approach provides immense long-term value, offsetting the initial costs.\n\nFirst, historical data shows a 45% increase in efficiency across similar implementations. Second, we cannot ignore the ethical imperative."
+    }]);
+    
+    // 2. Beta typing
+    setDebateState('beta_typing');
+    await new Promise(r => setTimeout(r, 1500));
+    setThread(prev => [...prev, { 
+      type: 'message', 
+      role: 'beta', 
+      content: "Beta responding here for the Con side. Alpha's claims are optimistic but fail to account for edge cases.\n\nThe 45% efficiency metric is drawn from a flawed study. Moreover, the initial costs frequently lead to budget overruns that stall broader initiatives entirely."
+    }]);
+
+    // 3. Fact Checker typing
+    setDebateState('fc_typing');
+    await new Promise(r => setTimeout(r, 2000));
+    setThread(prev => [...prev, { 
+      type: 'fact-check',
+      alphaClaims: [
+        { text: "Historical data shows a 45% increase in efficiency.", verdict: 'Partially True' },
+        { text: "Adopting this approach offsets initial costs.", verdict: 'True' }
+      ],
+      betaClaims: [
+        { text: "The 45% efficiency metric is drawn from a flawed study.", verdict: 'False' },
+        { text: "Initial costs lead to budget overruns.", verdict: 'Partially True' }
+      ]
+    }]);
+    
+    // 4. Sequence done
+    setDebateState('waiting_continue');
   };
 
-  const handleStartDebate = async (topic: string, points: string[]) => {
-    setIsLoading(true);
-
-    try {
-      // Create new chat
-      const newChat: ChatItem = {
-        id: Date.now().toString(),
-        title: topic.substring(0, 50),
-        timestamp: new Date(),
-        topic,
-        messages: [],
-      };
-
-      // Call backend API to start debate
-      const response = await axios.post(`${API_BASE_URL}/debate/start`, {
-        topic,
-        discussion_points: points,
-      });
-
-      // Process response
-      const messages: Message[] = [];
-
-      // Add Alpha's opening statement
-      if (response.data.alpha_opening) {
-        messages.push({
-          type: 'debate',
-          agent: 'Alpha',
-          content: response.data.alpha_opening,
-          timestamp: new Date(),
-        });
-      }
-
-      // Add Beta's response
-      if (response.data.beta_response) {
-        messages.push({
-          type: 'debate',
-          agent: 'Beta',
-          content: response.data.beta_response,
-          timestamp: new Date(),
-        });
-      }
-
-      // Add fact-checker results
-      if (response.data.fact_check) {
-        const claims = parseFactCheckResults(response.data.fact_check, response.data);
-        messages.push({
-          type: 'fact-checker',
-          content: claims,
-        });
-      }
-
-      newChat.messages = messages;
-      setChats([newChat, ...chats]);
-      setActiveChat(newChat.id);
-    } catch (error) {
-      alert('Failed to start debate. Make sure the backend is running.');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleStartDebate = (newTopic: string) => {
+    setTopic(newTopic);
+    setThread([{ type: 'topic', content: newTopic }]);
+    simulateTrip();
   };
 
-  const handleContinueDebate = async () => {
-    const chat = chats.find((c) => c.id === activeChat);
-    if (!chat) return;
-
-    setIsLoading(true);
-
-    try {
-      const response = await axios.post(`${API_BASE_URL}/debate/continue`, {
-        topic: chat.topic,
-        chat_history: chat.messages,
-      });
-
-      const newMessages: Message[] = [...chat.messages];
-
-      // Add new messages from response
-      if (response.data.alpha_response) {
-        newMessages.push({
-          type: 'debate',
-          agent: 'Alpha',
-          content: response.data.alpha_response,
-          timestamp: new Date(),
-        });
-      }
-
-      if (response.data.beta_response) {
-        newMessages.push({
-          type: 'debate',
-          agent: 'Beta',
-          content: response.data.beta_response,
-          timestamp: new Date(),
-        });
-      }
-
-      if (response.data.fact_check) {
-        const claims = parseFactCheckResults(response.data.fact_check, response.data);
-        newMessages.push({
-          type: 'fact-checker',
-          content: claims,
-        });
-      }
-
-      // Update chat
-      setChats(
-        chats.map((c) =>
-          c.id === activeChat
-            ? { ...c, messages: newMessages }
-            : c
-        )
-      );
-    } catch (error) {
-      alert('Failed to continue debate.');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleContinue = () => {
+    simulateTrip();
   };
 
-  const parseFactCheckResults = (
-    factCheckData: any,
-    _responseData: any
-  ): ClaimCheck[] => {
-    const claims: ClaimCheck[] = [];
-
-    // Parse fact check data - this depends on your backend response format
-    // Adjust based on actual API response structure
-    if (factCheckData.alpha_claims) {
-      factCheckData.alpha_claims.forEach((claim: any) => {
-        claims.push({
-          agent: 'Alpha',
-          claim: claim.text || claim.claim || claim,
-          result: claim.verdict || claim.result || 'Partially true',
-        });
-      });
-    }
-
-    if (factCheckData.beta_claims) {
-      factCheckData.beta_claims.forEach((claim: any) => {
-        claims.push({
-          agent: 'Beta',
-          claim: claim.text || claim.claim || claim,
-          result: claim.verdict || claim.result || 'Partially true',
-        });
-      });
-    }
-
-    return claims;
+  const handleNewDebate = () => {
+    setTopic('');
+    setThread([]);
+    setDebateState('idle');
   };
-
-  const activeChatData = chats.find((c) => c.id === activeChat);
 
   return (
-    <div className="app">
-      <Sidebar
-        chats={chats.map((c) => ({
-          id: c.id,
-          title: c.title,
-          timestamp: c.timestamp,
-        }))}
-        activeChat={activeChat}
-        onNewChat={handleNewChat}
-        onSelectChat={handleSelectChat}
-        onDeleteChat={handleDeleteChat}
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
-
-      <div className="app-container">
-        {!activeChat ? (
-          <InitialPrompt onStartDebate={handleStartDebate} isLoading={isLoading} />
+    <MainLayout onNewDebate={handleNewDebate}>
+      <div className="flex flex-col h-full items-center justify-between">
+        {thread.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center w-full px-4 animate-in fade-in zoom-in duration-500">
+            <h1 className="text-3xl md:text-5xl font-bold mb-5 bg-gradient-to-br from-primary to-secondary bg-clip-text text-transparent pb-1 tracking-tight">
+              Start a New Debate
+            </h1>
+            <p className="text-foreground/60 text-center max-w-md text-sm md:text-base leading-relaxed">
+              Enter a topic and describe the key points you'd like debated by the Pro and Con agents.
+            </p>
+          </div>
         ) : (
-          <ChatArea
-            messages={activeChatData?.messages || []}
-            topic={activeChatData?.topic || ''}
-            isLoading={isLoading}
-            onContinueDebate={handleContinueDebate}
-            showContinueButton={
-              !isLoading && activeChatData?.messages && activeChatData.messages.length > 0
-            }
-          />
+          <div className="flex-1 w-full overflow-y-auto" ref={scrollRef}>
+            {/* Top Bar Header */}
+            <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border px-4 py-4 w-full flex justify-center">
+              <h2 className="font-semibold text-lg truncate max-w-3xl text-center px-4 w-full text-foreground/90">
+                {topic}
+              </h2>
+            </div>
+            
+            {/* Chat Thread */}
+            <div className="w-full max-w-3xl mx-auto py-6 divide-y divide-border/30">
+              {thread.map((item, i) => {
+                if (item.type === 'message') {
+                  return <MessageBubble key={i} role={item.role} content={item.content} />;
+                } else if (item.type === 'fact-check') {
+                  return <FactCheckerCard key={i} alphaClaims={item.alphaClaims} betaClaims={item.betaClaims} />;
+                }
+                return null;
+              })}
+
+              {debateState === 'alpha_typing' && <TypingIndicator />}
+              {debateState === 'beta_typing' && <TypingIndicator />}
+              {debateState === 'fc_typing' && <TypingIndicator />}
+
+              {debateState === 'waiting_continue' && (
+                <div className="py-8 flex justify-center animate-in fade-in duration-300">
+                  <button 
+                    onClick={handleContinue}
+                    className="px-6 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-full font-semibold transition-colors"
+                  >
+                    Continue Debate
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
+
+        <div className="w-full shrink-0">
+          <InputBar 
+            onSend={handleStartDebate} 
+            disabled={debateState !== 'idle'} 
+          />
+        </div>
       </div>
-    </div>
+    </MainLayout>
   );
 }
 
