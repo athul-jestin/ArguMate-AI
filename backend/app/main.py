@@ -1,15 +1,29 @@
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import os
-from app.api.debate import router as debate_router
+
+from app.api.api import api_router
+from app.database import engine
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Verify DB connectivity on startup, dispose the engine on shutdown."""
+    async with engine.connect():
+        pass
+    yield
+    await engine.dispose()
+
 
 app = FastAPI(
     title="ArguMate-AI",
     description="Agentic Adversarial AI Debate System",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
-# Add CORS middleware
 origins = os.getenv("CORS_ORIGINS", "*").split(",")
 
 app.add_middleware(
@@ -20,34 +34,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(debate_router, prefix="/api")
+app.include_router(api_router)
 
 
 @app.get("/")
-def read_root():
+async def read_root():
     return {
         "message": "ArguMate-AI Agentic Adversarial Debate System",
         "version": "1.0.0",
-        "status": "🟢 Running"
+        "status": "running",
     }
 
 
 @app.get("/health")
-def health_check():
+async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "service": "argumate-backend"
+        "service": "argumate-backend",
     }
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Run on application startup"""
-    pass
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Run on application shutdown"""
-    pass

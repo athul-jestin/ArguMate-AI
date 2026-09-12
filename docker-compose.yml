@@ -78,9 +78,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
     container_name: argumate-frontend
-    environment:
-      VITE_API_URL: http://localhost:8000/api
     ports:
       - "${FRONTEND_PORT}:3000"
     depends_on:

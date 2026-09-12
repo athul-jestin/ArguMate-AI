@@ -290,12 +290,15 @@ MIT License - See LICENSE file for details
 
 ## 📊 Project Status
 
-✅ Frontend UI Complete  
-✅ Backend API Structure Ready  
-✅ Component System Implemented  
-⏳ Database Integration (upcoming)  
-⏳ User Authentication (upcoming)  
-⏳ Advanced Fact-Checking (upcoming)  
+✅ Frontend UI Complete
+✅ Async FastAPI backend (SQLAlchemy + asyncpg + Alembic)
+✅ JWT Authentication (register/login/refresh, protected routes)
+✅ Database-backed debate sessions & history
+✅ Real OpenAI (gpt-4o) debate agents + Google Fact Check (with AI fallback)
+
+Before running, set real values in `.env` for `SECRET_KEY` (any random string),
+`OPENAI_API_KEY` (required — debates won't generate without it), and optionally
+`GOOGLE_FACT_CHECK_API_KEY` (falls back to AI-only fact-checking if left blank/placeholder).
 
 ---
 

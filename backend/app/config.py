@@ -14,7 +14,7 @@ def get_database_url():
     port = os.getenv("POSTGRES_PORT", "5432")
     db = os.getenv("POSTGRES_DB", "argumate_db")
     
-    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
 
 class Settings:
     DATABASE_URL: str = get_database_url()

@@ -26,6 +26,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=backend-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
 COPY backend/app ./app
+COPY backend/alembic ./alembic
+COPY backend/alembic.ini ./alembic.ini
 
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
@@ -43,6 +45,8 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm install --legacy-peer-deps
 COPY frontend .
+ARG VITE_API_URL=http://localhost:8000/api
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # Frontend runtime stage
